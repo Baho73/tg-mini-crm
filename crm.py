@@ -17,6 +17,8 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlencode, urlparse
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.client.session.middlewares.base import BaseRequestMiddleware
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import SimpleEventIsolation
@@ -200,12 +202,27 @@ def auth(cred: HTTPBasicCredentials = Depends(security)):
         raise HTTPException(401, headers={"WWW-Authenticate": "Basic"})
 
 
+class RetryNetwork(BaseRequestMiddleware):
+    """С российского сервера ~1 из 10 соединений с Telegram рвется (DPI): повторяем запрос,
+    иначе ответ бота клиенту теряется."""
+
+    async def __call__(self, make_request, bot, method):
+        for attempt in range(3):
+            try:
+                return await make_request(bot, method)
+            except TelegramNetworkError:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1 + attempt)
+
+
 @asynccontextmanager
 async def lifespan(_):
     init_db()
     task = None
     if os.getenv("BOT_TOKEN"):
         bot = Bot(os.environ["BOT_TOKEN"])
+        bot.session.middleware(RetryNetwork())
         task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
         # бот умер (например, отозван токен), а веб жив: роняем процесс, docker поднимет заново
         task.add_done_callback(lambda t: t.cancelled() or os._exit(1))
