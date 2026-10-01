@@ -9,6 +9,7 @@
 # END_MODULE_CONTRACT
 
 import asyncio
+import logging
 import html
 import os
 import secrets
@@ -23,12 +24,13 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import SimpleEventIsolation
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from aiogram.types import BusinessConnection, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 DB_PATH = os.getenv("DB_PATH", "crm.db")
+logging.basicConfig(level=logging.INFO)  # aiogram пишет в лог каждый апдейт: видно, что дошло от Telegram
 
 
 # START_BLOCK_STORAGE
@@ -181,6 +183,11 @@ async def business_in(m: Message):
         tg = f"@{m.from_user.username}" if m.from_user.username else f"tg id {m.from_user.id}"
         upsert_tg_message(m.chat.id, m.from_user.full_name, tg, m.text or m.caption, "telegram",
                           m.business_connection_id)
+
+
+@dp.business_connection()
+async def business_conn(c: BusinessConnection):
+    logging.info("business connection %s user=%s enabled=%s", c.id, c.user.id, c.is_enabled)
 # END_BLOCK_BOT
 
 
