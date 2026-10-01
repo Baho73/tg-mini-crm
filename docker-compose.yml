@@ -5,7 +5,7 @@ services:
     env_file: .env
     # ponytail: host-сеть, потому что из docker-bridge этого сервера Telegram недоступен (Network is unreachable), а с хоста доступен
     network_mode: host
-    command: ["uvicorn", "crm:app", "--host", "0.0.0.0", "--port", "8701"]
+    command: ["uvicorn", "crm:app", "--host", "127.0.0.1", "--port", "8701"]
     volumes: ["./data:/data"]
     restart: unless-stopped
     mem_limit: 256m
